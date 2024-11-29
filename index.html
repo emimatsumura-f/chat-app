@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+        <title>みんなでchat</title>
+        <style>
+            #output li {
+                background: #ccc;
+            }
+        </style>
+    </head>
+
+    <body>
+        <h1>みんなでchat</h1>
+        <!-- 入力場所を作成しよう -->
+        <form>
+            <fieldset>
+                <legend>new chat</legend>
+                <div>name: <input type="text" id="name" /></div>
+                <div>talk: <input type="text" id="text" /></div>
+                <div>
+                    <button type="button" id="send">new chat</button>
+                </div>
+            </fieldset>
+        </form>
+
+        <!-- データ出力場所 -->
+        <ul id="output"></ul>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+        <script>
+            function convertTimestampToDatetime(timestamp) {
+                // timestampがnullまたはundefinedの場合の処理を追加
+                const _d = timestamp?.seconds
+                    ? new Date(timestamp.seconds * 1000)
+                    : new Date();
+                const Y = _d.getFullYear();
+                const m = (_d.getMonth() + 1).toString().padStart(2, "0");
+                const d = _d.getDate().toString().padStart(2, "0");
+                const H = _d.getHours().toString().padStart(2, "0");
+                const i = _d.getMinutes().toString().padStart(2, "0");
+                const s = _d.getSeconds().toString().padStart(2, "0");
+                return `${Y}/${m}/${d} ${H}:${i}:${s}`;
+            }
+        </script>
+        <!-- 以下にfirebaseのコードを貼り付けよう -->
+        <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+            import {
+                getFirestore,
+                collection,
+                addDoc,
+                serverTimestamp,
+                onSnapshot,
+                query,
+                orderBy,
+                doc,
+                deleteDoc,
+            } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+            const firebaseConfig = {
+                // apiKeyなどの値を適切なものに置き換える
+
+                authDomain: "chat-app-4be6d.firebaseapp.com",
+                projectId: "chat-app-4be6d",
+                storageBucket: "chat-app-4be6d.firebasestorage.app",
+                messagingSenderId: "439766735718",
+                appId: "1:439766735718:web:9382f0e48daa1b843306a7",
+            };
+
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+
+            // データの保存
+            $("#send").on("click", function () {
+                const postData = {
+                    name: $("#name").val(),
+                    text: $("#text").val(),
+                    time: serverTimestamp(),
+                };
+                addDoc(collection(db, "chat"), postData);
+                $("#text").val("");
+            });
+
+            // データの取得と出力、削除ボタンの追加
+            const q = query(collection(db, "chat"), orderBy("time", "desc"));
+            onSnapshot(q, (querySnapshot) => {
+                const elements = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // time.secondsが存在するか確認
+                    const timeString = data.time?.seconds
+                        ? convertTimestampToDatetime(data.time)
+                        : "時間不明";
+
+                    elements.push(`
+            <li id="${doc.id}">
+            <p>${data.name} at ${timeString}</p>
+            <p>${data.text}</p>
+            <button class="delete-button" data-id="${doc.id}">削除</button>
+            </li>
+        `);
+                });
+                $("#output").html(elements);
+
+                // 削除ボタンのイベント
+                $(".delete-button").on("click", function () {
+                    const chatId = $(this).data("id");
+                    deleteDoc(doc(db, "chat", chatId))
+                        .then(() => {
+                            console.log("Document successfully deleted!");
+                        })
+                        .catch((error) => {
+                            console.error("Error removing document: ", error);
+                        });
+                });
+            });
+        </script>
+    </body>
+</html>
